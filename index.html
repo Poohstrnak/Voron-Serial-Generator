@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Voron Serial Plate Generator</title>
+  <meta name="description" content="Make a 3D-printable serial plate for your Voron: pick your printer, extrusion size and serial number, and download an STL.">
+  <!-- Link previews (Discord, Slack, etc.). Images and URLs must be absolute. -->
+  <meta property="og:type" content="website">
+  <meta property="og:site_name" content="Voron Serial Plate Generator">
+  <meta property="og:title" content="Voron Serial Plate Generator">
+  <meta property="og:description" content="Make a 3D-printable serial plate for your Voron: pick your printer, extrusion size and serial number, and download an STL.">
+  <meta property="og:url" content="https://cerial.poohstrnak.com/">
+  <meta property="og:image" content="https://cerial.poohstrnak.com/preview.png">
+  <meta property="og:image:width" content="1200">
+  <meta property="og:image:height" content="630">
+  <meta property="og:image:alt" content="The Voron Serial Plate Generator page showing a VT.2050 plate">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="theme-color" content="#2563eb">
+  <style>
+    :root { --bg: #f4f5f7; --panel: #fff; --text: #1d2330; --muted: #6b7280; --accent: #2563eb; --error: #b91c1c; --border: #d6d9df; --chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5l5 5 5-5' fill='none' stroke='%236b7280' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"); }
+    @media (prefers-color-scheme: dark) {
+      :root { --bg: #14171c; --panel: #1d2128; --text: #e7e9ee; --muted: #9aa1ad; --accent: #60a5fa; --error: #f87171; --border: #353b45; --chevron: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1 1.5l5 5 5-5' fill='none' stroke='%239aa1ad' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"); }
+    }
+    * { box-sizing: border-box; }
+    body { margin: 0; font: 16px/1.4 system-ui, sans-serif; background: var(--bg); color: var(--text); }
+    main { max-width: 900px; margin: 0 auto; padding: 24px 16px; }
+    h1 { font-size: 1.4rem; margin: 0 0 16px; }
+    form { display: flex; flex-wrap: wrap; gap: 12px; align-items: end; background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
+    label { display: flex; flex-direction: column; gap: 4px; font-size: .85rem; color: var(--muted); }
+    select, input, button { font: inherit; padding: 8px 12px; border-radius: 6px; border: 1px solid var(--border); background: var(--bg); color: var(--text); }
+    /* Custom arrow: the native one ignores padding and sits against the edge. */
+    select { appearance: none; padding-right: 36px; background-image: var(--chevron); background-repeat: no-repeat; background-position: right 12px center; }
+    /* Fits the longest printer names ("Switchwire", "Salad Fork") in every browser, not just those that size selects to their widest option. */
+    #printer { min-width: calc(10ch + 48px); }
+    /* text-indent offsets the letter-spacing after the last digit so the text is truly centered. */
+    input { width: 8ch; letter-spacing: .1em; text-align: center; text-indent: .1em; }
+    button { background: var(--accent); color: #fff; border: none; cursor: pointer; }
+    button:disabled { opacity: .5; cursor: default; }
+    #status { flex-basis: 100%; min-height: 1.4em; font-size: .9rem; color: var(--muted); margin: 0; }
+    #status.error { color: var(--error); }
+    #viewer { margin-top: 16px; height: 360px; background: var(--panel); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+    #links { margin-top: 16px; display: flex; flex-wrap: wrap; gap: 8px 24px; background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
+    #links a { color: var(--accent); text-decoration: none; }
+    #links a:hover { text-decoration: underline; }
+    #links p { flex-basis: 100%; margin: 0; font-size: .9rem; color: var(--muted); }
+  </style>
+  <script type="importmap">
+    {
+      "imports": {
+        "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js",
+        "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.160.0/examples/jsm/",
+        "opentype.js": "https://cdn.jsdelivr.net/npm/opentype.js@1.3.4/dist/opentype.module.js",
+        "manifold-3d": "https://cdn.jsdelivr.net/npm/manifold-3d@3.5.1/manifold.js"
+      }
+    }
+  </script>
+</head>
+<body>
+  <main>
+    <h1>Voron Serial Plate Generator</h1>
+    <form id="form">
+      <label>Printer
+        <select id="printer"></select>
+      </label>
+      <label>Extrusion
+        <select id="extrusion"></select>
+      </label>
+      <label>Screw holes
+        <select id="holes">
+          <option value="yes">Yes</option>
+          <option value="no">No</option>
+        </select>
+      </label>
+      <label>Text
+        <select id="style">
+          <option value="recessed">Recessed</option>
+          <option value="embossed">Embossed</option>
+        </select>
+      </label>
+      <label>Number
+        <input id="number" inputmode="numeric" maxlength="4" placeholder="0000" autocomplete="off" required>
+      </label>
+      <button id="download" type="submit" disabled>Download STL</button>
+      <p id="status">Loading…</p>
+    </form>
+    <div id="viewer"></div>
+    <nav id="links">
+      <a href="https://discord.gg/voron" target="_blank" rel="noopener">Voron Discord</a>
+      <a href="https://vorondesign.com/" target="_blank" rel="noopener">Voron Design</a>
+      <p>This page is maintained by Poohstrnak.</p>
+    </nav>
+  </main>
+  <script type="module" src="app.js?v=28"></script>
+</body>
+</html>
