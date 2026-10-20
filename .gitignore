@@ -1,5 +1,8 @@
+# OS clutter
 .DS_Store
-.env
-.env.*
-fly.toml
-.fly/
+._*
+Thumbs.db
+
+# Editor settings
+.vscode/
+.idea/
