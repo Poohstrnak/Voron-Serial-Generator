@@ -1,3 +1,7 @@
+# Public Instance
+
+There is a cloud hosted instance availably publicly [here](https://cerial.poohstrnak.com)
+
 # Voron Serial Plate Generator
 
 Web page that generates serial plate STLs: pick a printer and extrusion profile, enter a 1 to 4 digit number, download `VT.1234.stl`.
@@ -53,7 +57,3 @@ Open http://127.0.0.1:8765. It needs to be served over HTTP (not opened as a fil
 The Text dropdown chooses whether the logo and text are recessed 0.4 mm (two 0.2 mm layers) into the plate face (the default) or embossed 0.4 mm above it, level with the border. Either way each plate is exported as a single solid. The logo and text are cut out of or merged into the plate in the browser with [Manifold](https://github.com/elalish/manifold) (`manifold-3d`, loaded from a CDN like three.js and opentype.js).
 
 Features are sized for a 0.4 mm nozzle: every stroke of the text and logo is at least 0.9 mm wide (two 0.45 mm lines) on every plate size. Smaller plates use a heavier weight of Saira (550 on 1515, 450 on 2020, 400 on 3030), the "." is at least 1.6 mm across, and the 1515 logo's outer edge is grown 0.15 mm so the band between its slots and edge stays 0.9 mm.
-
-# License
-
-GNU General Public License v3.0
