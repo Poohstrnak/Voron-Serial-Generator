@@ -10,10 +10,10 @@ Web page that generates serial plate STLs: pick a printer and extrusion profile,
 |---|---|---|---|
 | V0 | V0.1234 | Voron slashes | 1515 |
 | V2 | V2.1234 | Voron slashes | 2020 |
-| Box Turtle | BT.1234 | the Box Turtle turtle (`logo_2020_boxturtle.stl`) | 2020 |
+| Box Turtle | BT.1234 | the Box Turtle turtle (`logo_2020_boxturtle.stl`, made by `tools/make_logo.py`) | 2020 |
 | Legacy | VL.1234 | Voron slashes | 2020 |
-| Micron | μ.1234 | none: the μ (`symbol_micron.stl`) replaces the prefix | 1515 |
-| Salad Fork | (fork).1234 | none: the fork (`symbol_saladfork.stl`) replaces the prefix | 1515 |
+| Micron | μ.1234 | none: the μ (`symbol_micron.stl`, cut from `logo_2020_micron.stl`) replaces the prefix | 1515 |
+| Salad Fork | (fork).1234 | none: the fork (`symbol_saladfork.stl`, cut from `logo_2020_saladfork.stl`) replaces the prefix | 1515 |
 | Switchwire | VS.1234 | Voron slashes | 3030 |
 | Trident | VT.1234 | Voron slashes | 2020 |
 
@@ -70,6 +70,6 @@ To set the total by hand: `npx wrangler d1 execute serial-counter --remote --com
 
 ## Printing
 
-The Text dropdown chooses whether the logo and text are recessed 0.4 mm (two 0.2 mm layers) into the plate face (the default) or embossed 0.4 mm above it, level with the border. Either way each plate is exported as a single solid. The logo and text are cut out of or merged into the plate in the browser with [Manifold](https://github.com/elalish/manifold) (`manifold-3d`, loaded from a CDN like three.js and opentype.js).
+The Text dropdown chooses whether the logo and text are recessed 0.4 mm (two 0.2 mm layers) into the plate face (the default) or embossed 0.4 mm above it, level with the border. The STL holds separate bodies so slicers can split it into parts for multi-color printing: the plate and the raised border around its face, plus, when embossed, the logo and each character of the text. The border starts 0.001 mm above the face so its edges don't coincide with the plate's, which would make slicers join them. The logo and text are cut out of the plate or placed on it in the browser with [Manifold](https://github.com/elalish/manifold) (`manifold-3d`, loaded from a CDN like three.js and opentype.js).
 
 Features are sized for a 0.4 mm nozzle: every stroke of the text and logo is at least 0.9 mm wide (two 0.45 mm lines) on every plate size. Smaller plates use a heavier weight of Saira (550 on 1515, 450 on 2020, 400 on 3030), the "." is at least 1.6 mm across, and the 1515 logo's outer edge is grown 0.15 mm so the band between its slots and edge stays 0.9 mm.
