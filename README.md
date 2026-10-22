@@ -10,10 +10,10 @@ Web page that generates serial plate STLs: pick a printer and extrusion profile,
 |---|---|---|---|
 | V0 | V0.1234 | Voron slashes | 1515 |
 | V2 | V2.1234 | Voron slashes | 2020 |
-| Box Turtle | BT.1234 | the Box Turtle turtle (`logo_2020_boxturtle.stl`, made by `tools/make_logo.py`) | 2020 |
+| Box Turtle | BT.1234 | the Box Turtle turtle (`logo_2020_boxturtle.stl`) | 2020 |
 | Legacy | VL.1234 | Voron slashes | 2020 |
-| Micron | μ.1234 | none: the μ (`symbol_micron.stl`, cut from `logo_2020_micron.stl`) replaces the prefix | 1515 |
-| Salad Fork | (fork).1234 | none: the fork (`symbol_saladfork.stl`, cut from `logo_2020_saladfork.stl`) replaces the prefix | 1515 |
+| Micron | μ.1234 | none: the μ (`symbol_micron.stl`) replaces the prefix | 1515 |
+| Salad Fork | (fork).1234 | none: the fork (`symbol_saladfork.stl`) replaces the prefix | 1515 |
 | Switchwire | VS.1234 | Voron slashes | 3030 |
 | Trident | VT.1234 | Voron slashes | 2020 |
 
