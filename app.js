@@ -2,9 +2,9 @@ import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import opentype from "opentype.js";
 import Manifold from "manifold-3d";
-import { EXTRUSIONS, FONT_WEIGHT, MAX_DIGITS, PRINTERS, buildBlank, buildPlate, parseBinarySTL, plateLabel, validate, writeBinarySTL } from "./plate.js?v=28";
+import { EXTRUSIONS, FONT_WEIGHT, MAX_DIGITS, PRINTERS, buildBlank, buildPlate, parseBinarySTL, plateLabel, validate, writeBinarySTL } from "./plate.js?v=29";
 
-const VERSION = 27; // bump when any fetched file changes, so Cloudflare serves the new one
+const VERSION = 29; // bump when any fetched file changes, so Cloudflare serves the new one
 
 const form = document.getElementById("form");
 const printerEl = document.getElementById("printer");
@@ -15,6 +15,7 @@ const numberEl = document.getElementById("number");
 const downloadEl = document.getElementById("download");
 const statusEl = document.getElementById("status");
 const viewer = document.getElementById("viewer");
+const counterEl = document.getElementById("counter");
 
 const printers = Object.fromEntries(PRINTERS.map((p) => [p.name, p]));
 for (const p of PRINTERS) printerEl.add(new Option(p.name, p.name));
@@ -109,7 +110,21 @@ form.addEventListener("submit", (e) => {
   const a = Object.assign(document.createElement("a"), { href: url, download: `${name}.stl` });
   a.click();
   URL.revokeObjectURL(url);
+  showCount("POST");
 });
+
+// Plates downloaded to date, counted by a Cloudflare Worker (worker/). Stays hidden if the count
+// can't be reached, e.g. when the page is served locally.
+async function showCount(method = "GET") {
+  try {
+    const res = await fetch("api/count", { method });
+    if (!res.ok) return;
+    const { count } = await res.json();
+    counterEl.textContent = `${count.toLocaleString()} ${count === 1 ? "plate" : "plates"} generated to date.`;
+    counterEl.hidden = false;
+  } catch {}
+}
+showCount();
 
 try {
   // Retry a few times: requests made while the server is waking from standby can fail.

@@ -1,0 +1,11 @@
+{
+  "name": "serial-counter",
+  "private": true,
+  "description": "Counts plates downloaded from the Voron Serial Plate Generator (see README).",
+  "scripts": {
+    "deploy": "wrangler deploy"
+  },
+  "devDependencies": {
+    "wrangler": "4.148.0"
+  }
+}

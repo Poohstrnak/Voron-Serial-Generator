@@ -1,0 +1,12 @@
+# Cloudflare Worker for the "plates generated to date" counter. It answers only
+# cerial.poohstrnak.com/api/count; everything else on the site still goes to Fly.
+name = "serial-counter"
+main = "src/index.js"
+compatibility_date = "2026-10-01"
+workers_dev = false
+routes = [{ pattern = "cerial.poohstrnak.com/api/count", zone_name = "poohstrnak.com" }]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "serial-counter"
+database_id = "9bba3c7c-b279-4ffe-af99-1ebf67a1e78a"

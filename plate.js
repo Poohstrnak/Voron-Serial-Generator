@@ -12,6 +12,7 @@
 export const PRINTERS = [
   { name: "V0", prefix: "V0", extrusion: "1515", logo: "voron" },
   { name: "V2", prefix: "V2", extrusion: "2020", logo: "voron" },
+  { name: "Box Turtle", prefix: "BT", extrusion: "2020", logo: "boxturtle", base: "boxturtle" },
   { name: "Legacy", prefix: "VL", extrusion: "2020", logo: "voron" },
   { name: "Micron", prefix: "μ", file: "micron", extrusion: "1515", logo: null, symbol: "micron", base: "micron" },
   { name: "Salad Fork", prefix: "SaladFork", extrusion: "1515", logo: null, symbol: "saladfork", base: "saladfork" },
