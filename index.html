@@ -40,6 +40,7 @@
     button:disabled { opacity: .5; cursor: default; }
     #status { flex-basis: 100%; min-height: 1.4em; font-size: .9rem; color: var(--muted); margin: 0; }
     #status.error { color: var(--error); }
+    #notes { flex-basis: 100%; margin: 0; padding-left: 1.2em; font-size: .85rem; color: var(--muted); }
     #viewer { margin-top: 16px; height: 360px; background: var(--panel); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
     #links { margin-top: 16px; display: flex; flex-wrap: wrap; gap: 8px 24px; background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 16px; }
     #links a { color: var(--accent); text-decoration: none; }
@@ -84,6 +85,11 @@
       </label>
       <button id="download" type="submit" disabled>Download STL</button>
       <p id="status">Loading…</p>
+      <ul id="notes">
+        <li>Recessed: the plate and its border are separate bodies.</li>
+        <li>Embossed: the plate, border, logo and text are separate bodies.</li>
+        <li>For multi-color printing, use Split to parts in your slicer to select colors for each component, or paint normally.</li>
+      </ul>
     </form>
     <div id="viewer"></div>
     <nav id="links">
