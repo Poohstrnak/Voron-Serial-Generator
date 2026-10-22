@@ -2,7 +2,7 @@ import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import opentype from "opentype.js";
 import Manifold from "manifold-3d";
-import { EXTRUSIONS, FONT_WEIGHT, MAX_DIGITS, PRINTERS, buildBlank, buildPlate, parseBinarySTL, plateLabel, validate, writeBinarySTL } from "./plate.js?v=30";
+import { EXTRUSIONS, FONT_WEIGHT, MAX_DIGITS, PRINTERS, buildBlank, buildPlate, parseBinarySTL, plateLabel, validate, writeBinarySTL } from "./plate.js?v=31";
 
 const VERSION = 29; // bump when any fetched file changes, so Cloudflare serves the new one
 

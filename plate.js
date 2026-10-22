@@ -55,12 +55,17 @@ const RECESS_DEPTH = 0.4; // two 0.2 mm layers
 const EMBOSS_HEIGHT = 0.4; // as on the original plate, level with the border
 // The logo and text are cut into the face (recessed) or raised from it (embossed). Each style's
 // solids span [bottom, top] in z: recess cutters rise past the face so the cut is clean, and
-// embossed solids start below it so they merge into the plate.
+// embossed solids sit on it, as bodies of their own.
 export const STYLES = ["recessed", "embossed"];
 const STYLE_Z = {
   recessed: [FACE_Z - RECESS_DEPTH, FACE_Z + 1],
-  embossed: [FACE_Z - 0.1, FACE_Z + EMBOSS_HEIGHT],
+  embossed: [FACE_Z, FACE_Z + EMBOSS_HEIGHT],
 };
+// The STL holds separate bodies so a slicer can split it into parts and give each a filament: the
+// plate, the raised border around its face, and (when embossed) the logo and the text. Where the
+// border meets the plate their edges would coincide, and slicers join bodies that share edges, so
+// the border starts this far above the face; it's far below anything a printer can resolve.
+const BORDER_GAP = 0.001;
 const CURVE_SEGMENTS = 8;
 
 export function validate(prefix, number) {
@@ -74,8 +79,9 @@ export function plateLabel(prefix, number) {
 }
 
 // Returns { triangles, marked }: a Float32Array of triangle vertex positions (9 floats per
-// triangle), and how many of them, at the start, are faces of the logo and text (the walls and
-// floor of a recess, or the sides and top of embossing), so the preview can color them. `mf` is the
+// triangle) making up the plate's separate bodies (see BORDER_GAP), and how many of them, at the
+// start, are faces of the logo and text (the walls and floor of a recess, or the embossed logo
+// and text), so the preview can color them. `mf` is the
 // initialized manifold-3d module. `font` and the logo should be the ones for the extrusion
 // (FONT_WEIGHT, logo_<extrusion>.stl). `style` is one of STYLES. `bases` maps each extrusion in
 // EXTRUSIONS to its blank plate (with or without screw holes). The logo is passed in at its
@@ -94,7 +100,8 @@ export function buildPlate(THREE, mf, font, bases, logoTriangles, extrusion, sty
   const dotSize = Math.min(dot.x2 - dot.x1, dot.y2 - dot.y1) * scale * BLOCK_SCALE[extrusion];
   const dotScale = scale * Math.max(1, MIN_DOT_SIZE / dotSize);
   const z = styleZ(style);
-  const shapes = logoTriangles ? [logoSolid(mf, logoTriangles, z)] : [];
+  const logo = logoTriangles ? [logoSolid(mf, logoTriangles, z)] : [];
+  const text = [];
   const chars = [...(symbol ? "" : prefix), DOT, ...number];
   const charSlots = symbol ? slots.slice(PREFIX_SLOT_X.length - 1) : slots; // start at the "."
   chars.forEach((ch, i) => {
@@ -103,7 +110,7 @@ export function buildPlate(THREE, mf, font, bases, logoTriangles, extrusion, sty
     const s = ch === DOT ? dotScale : scale;
     const dx = charSlots[i] - ((bb.x1 + bb.x2) / 2) * s;
     const dy = baseline + bb.y1 * (scale - s); // a scaled-up dot still sits on the baseline
-    shapes.push(glyphSolid(THREE, mf, glyph, s, dx, dy, z));
+    text.push(glyphSolid(THREE, mf, glyph, s, dx, dy, z));
   });
   if (symbol) {
     // As tall as the capitals, sitting on the baseline at SYMBOL_BASELINE, and ending as far left
@@ -115,15 +122,15 @@ export function buildPlate(THREE, mf, font, bases, logoTriangles, extrusion, sty
     const [x1, x2] = range(symbolTriangles, 0), [y1, y2] = range(symbolTriangles, 1);
     const s = CAP_HEIGHT / (y2 - y1);
     const sitsOn = SYMBOL_BASELINE[symbol.name] ?? y1;
-    shapes.push(logoSolid(mf, placeXY(symbolTriangles, s, dotLeft - gap - x2 * s, BASELINE_Y - sitsOn * s), z));
+    text.push(logoSolid(mf, placeXY(symbolTriangles, s, dotLeft - gap - x2 * s, BASELINE_Y - sitsOn * s), z));
   }
 
-  return assemble(mf, bases, extrusion, style, shapes);
+  return assemble(mf, bases, extrusion, style, [logo, text]);
 }
 
 // The plate with just the logo (if any), for previewing before a number is entered.
 export function buildBlank(mf, bases, logoTriangles, extrusion, style) {
-  return assemble(mf, bases, extrusion, style, logoTriangles ? [logoSolid(mf, logoTriangles, styleZ(style))] : []);
+  return assemble(mf, bases, extrusion, style, [logoTriangles ? [logoSolid(mf, logoTriangles, styleZ(style))] : []]);
 }
 
 function styleZ(style) {
@@ -133,11 +140,14 @@ function styleZ(style) {
 
 // Scales the logo and text solids for the extrusion's plate and centers them as a block, from the
 // logo's left edge to the last character's right edge, then cuts them out of the plate (recessed)
-// or adds them to it (embossed).
-function assemble(mf, bases, extrusion, style, shapes) {
+// or sets them on it as bodies of their own (embossed). `groups` lists the solids of each part
+// (the logo's, then the text's).
+function assemble(mf, bases, extrusion, style, groups) {
   if (!EXTRUSIONS.includes(extrusion)) throw new Error(`Extrusion must be one of ${EXTRUSIONS.join(", ")}`);
   const base = bases[extrusion], scale = BLOCK_SCALE[extrusion];
-  if (!shapes.length) return toTriangles(plateManifold(mf, base)); // a blank plate with no logo
+  const { body, border } = plateParts(mf, base);
+  const shapes = groups.flat();
+  if (!shapes.length) return toTriangles([body, border], new Set()); // a blank plate with no logo
   const [plateX1, plateX2] = range(base, 0), [plateY1, plateY2] = range(base, 1), [, plateTop] = range(base, 2);
   const toX = (plateX1 + plateX2) / 2, midY = (plateY1 + plateY2) / 2;
   const faceShift = plateTop - BORDER_HEIGHT - FACE_Z;
@@ -145,11 +155,19 @@ function assemble(mf, bases, extrusion, style, shapes) {
   const block = mf.Manifold.union(shapes);
   const { min, max } = block.boundingBox();
   const fromX = (min[0] + max[0]) / 2;
-  const placed = block.translate([-fromX, -midY, 0]).scale([scale, scale, 1]).translate([toX, midY, faceShift]);
-  const blank = plateManifold(mf, base);
-  const plate = style === "embossed" ? blank.add(placed) : blank.subtract(placed);
-  const out = toTriangles(plate, blank.originalID());
-  for (const m of [...shapes, block, placed, plate]) m.delete();
+  // asOriginal gives the placed solids their own IDs, which mark their faces (see toTriangles).
+  const place = (m) => m.translate([-fromX, -midY, 0]).scale([scale, scale, 1]).translate([toX, midY, faceShift]).asOriginal();
+  let made;
+  if (style === "embossed") {
+    made = groups.filter((g) => g.length).map((g) => place(mf.Manifold.union(g)));
+    const out = toTriangles([...made, body, border], new Set(made.map((m) => m.originalID())));
+    for (const m of [...shapes, block, ...made]) m.delete();
+    return out;
+  }
+  const cutter = place(block);
+  const cut = body.subtract(cutter);
+  const out = toTriangles([cut, border], new Set([cutter.originalID()]));
+  for (const m of [...shapes, block, cutter, cut]) m.delete();
   return out;
 }
 
@@ -188,12 +206,20 @@ function glyphSolid(THREE, mf, glyph, s, dx, dy, [bottom, top]) {
   return solid;
 }
 
-// Blank plates are reused for every update, so convert each one once. asOriginal gives the plate
-// its own ID, which marks which triangles of a finished plate came from it (see toTriangles).
-const plateManifolds = new WeakMap();
-function plateManifold(mf, triangles) {
-  if (!plateManifolds.has(triangles)) plateManifolds.set(triangles, toManifold(mf, triangles).asOriginal());
-  return plateManifolds.get(triangles);
+// A blank plate split into its body, up to the face, and the raised border around the face,
+// starting BORDER_GAP above it. Blank plates are reused for every update, so split each one once.
+const splitPlates = new WeakMap();
+function plateParts(mf, triangles) {
+  if (!splitPlates.has(triangles)) {
+    const plate = toManifold(mf, triangles);
+    const { min, max } = plate.boundingBox();
+    const faceZ = max[2] - BORDER_HEIGHT;
+    const slab = (z1, z2) => mf.Manifold.cube([max[0] - min[0] + 2, max[1] - min[1] + 2, z2 - z1]).translate([min[0] - 1, min[1] - 1, z1]);
+    const below = slab(min[2] - 1, faceZ), above = slab(faceZ + BORDER_GAP, max[2] + 1);
+    splitPlates.set(triangles, { body: plate.intersect(below), border: plate.intersect(above) });
+    for (const m of [plate, below, above]) m.delete();
+  }
+  return splitPlates.get(triangles);
 }
 
 // Triangle soup (as read from an STL) to a Manifold, joining triangles at shared vertices.
@@ -214,26 +240,30 @@ function toManifold(mf, triangles) {
   return new mf.Manifold(mesh);
 }
 
-// The manifold's triangles as { triangles, marked } (see buildPlate). Manifold records which input
-// each triangle came from; those that didn't come from the plate (whose ID is `plateID`) are the
-// logo's and text's, and are put first.
-function toTriangles(manifold, plateID = null) {
-  const { numProp, vertProperties, triVerts, runIndex, runOriginalID } = manifold.getMesh();
-  const fromPlate = new Uint8Array(triVerts.length / 3).fill(1);
-  if (plateID !== null) {
+// The bodies' triangles together as { triangles, marked } (see buildPlate). Manifold records which
+// input each triangle came from; those from an input whose ID is in `markedIDs` are the logo's and
+// text's, and are put first.
+function toTriangles(manifolds, markedIDs) {
+  const meshes = manifolds.map((m) => m.getMesh());
+  const count = meshes.reduce((sum, mesh) => sum + mesh.triVerts.length / 3, 0);
+  const tagged = meshes.map(({ triVerts, runIndex, runOriginalID }) => {
+    const isMarked = new Uint8Array(triVerts.length / 3);
     runOriginalID.forEach((id, run) => {
-      if (id !== plateID) fromPlate.fill(0, runIndex[run] / 3, runIndex[run + 1] / 3);
+      if (markedIDs.has(id)) isMarked.fill(1, runIndex[run] / 3, runIndex[run + 1] / 3);
     });
-  }
-  const triangles = new Float32Array(triVerts.length * 3);
-  const marked = fromPlate.length - fromPlate.reduce((sum, f) => sum + f, 0);
-  let next = [0, marked]; // where the next marked and the next plate triangle go
-  fromPlate.forEach((f, t) => {
-    for (let k = 0; k < 3; k++) {
-      const v = triVerts[t * 3 + k];
-      triangles.set(vertProperties.subarray(v * numProp, v * numProp + 3), (next[f] * 3 + k) * 3);
-    }
-    next[f]++;
+    return isMarked;
+  });
+  const marked = tagged.reduce((sum, isMarked) => sum + isMarked.reduce((a, b) => a + b, 0), 0);
+  const triangles = new Float32Array(count * 9);
+  const next = [marked, 0]; // where the next plate triangle and the next marked triangle go
+  meshes.forEach(({ numProp, vertProperties, triVerts }, i) => {
+    tagged[i].forEach((m, t) => {
+      for (let k = 0; k < 3; k++) {
+        const v = triVerts[t * 3 + k];
+        triangles.set(vertProperties.subarray(v * numProp, v * numProp + 3), (next[m] * 3 + k) * 3);
+      }
+      next[m]++;
+    });
   });
   return { triangles, marked };
 }
