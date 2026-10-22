@@ -2,7 +2,7 @@ import * as THREE from "three";
 import { OrbitControls } from "three/addons/controls/OrbitControls.js";
 import opentype from "opentype.js";
 import Manifold from "manifold-3d";
-import { EXTRUSIONS, FONT_WEIGHT, MAX_DIGITS, PRINTERS, buildBlank, buildPlate, parseBinarySTL, plateLabel, validate, writeBinarySTL } from "./plate.js?v=29";
+import { EXTRUSIONS, FONT_WEIGHT, MAX_DIGITS, PRINTERS, buildBlank, buildPlate, parseBinarySTL, plateLabel, validate, writeBinarySTL } from "./plate.js?v=30";
 
 const VERSION = 29; // bump when any fetched file changes, so Cloudflare serves the new one
 
@@ -36,7 +36,9 @@ scene.add(new THREE.HemisphereLight(0xffffff, 0x666666, 2));
 const sun = new THREE.DirectionalLight(0xffffff, 2);
 sun.position.set(-60, -80, 100);
 scene.add(sun);
-const mesh = new THREE.Mesh(new THREE.BufferGeometry(), new THREE.MeshStandardMaterial({ color: 0x8a9bb0, roughness: 0.6 }));
+// The logo and text in a second color (the preview only; the STL is one solid).
+const materials = [0xd71f26, 0x8a9bb0].map((color) => new THREE.MeshStandardMaterial({ color, roughness: 0.6 }));
+const mesh = new THREE.Mesh(new THREE.BufferGeometry(), materials);
 scene.add(mesh);
 
 function resize() {
@@ -68,10 +70,12 @@ function setStatus(text, isError = false) {
   statusEl.classList.toggle("error", isError);
 }
 
-function showMesh(positions) {
+function showMesh({ triangles: positions, marked }) {
   const geom = new THREE.BufferGeometry();
   geom.setAttribute("position", new THREE.BufferAttribute(positions, 3));
   geom.computeVertexNormals();
+  geom.addGroup(0, marked * 3, 0);
+  geom.addGroup(marked * 3, Infinity, 1);
   mesh.geometry.dispose();
   mesh.geometry = geom;
 }
@@ -90,9 +94,10 @@ function update() {
     setStatus(number ? error : "Select your Voron. Enter your cerial", Boolean(number));
     return;
   }
-  triangles = buildPlate(THREE, mf, fonts[extrusion], plates, logo, extrusion, style, prefix, number,
+  const plate = buildPlate(THREE, mf, fonts[extrusion], plates, logo, extrusion, style, prefix, number,
     printer.symbol ? { name: printer.symbol, triangles: symbols[printer.symbol] } : null);
-  showMesh(triangles);
+  showMesh(plate);
+  triangles = plate.triangles;
   downloadEl.disabled = false;
   setStatus(`${plateLabel(prefix, number)} ready (${(triangles.length / 9).toLocaleString()} triangles).`);
 }

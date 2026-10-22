@@ -73,7 +73,9 @@ export function plateLabel(prefix, number) {
   return `${prefix}.${number}`;
 }
 
-// Returns a Float32Array of triangle vertex positions (9 floats per triangle). `mf` is the
+// Returns { triangles, marked }: a Float32Array of triangle vertex positions (9 floats per
+// triangle), and how many of them, at the start, are faces of the logo and text (the walls and
+// floor of a recess, or the sides and top of embossing), so the preview can color them. `mf` is the
 // initialized manifold-3d module. `font` and the logo should be the ones for the extrusion
 // (FONT_WEIGHT, logo_<extrusion>.stl). `style` is one of STYLES. `bases` maps each extrusion in
 // EXTRUSIONS to its blank plate (with or without screw holes). The logo is passed in at its
@@ -146,7 +148,7 @@ function assemble(mf, bases, extrusion, style, shapes) {
   const placed = block.translate([-fromX, -midY, 0]).scale([scale, scale, 1]).translate([toX, midY, faceShift]);
   const blank = plateManifold(mf, base);
   const plate = style === "embossed" ? blank.add(placed) : blank.subtract(placed);
-  const out = toTriangles(plate);
+  const out = toTriangles(plate, blank.originalID());
   for (const m of [...shapes, block, placed, plate]) m.delete();
   return out;
 }
@@ -186,10 +188,11 @@ function glyphSolid(THREE, mf, glyph, s, dx, dy, [bottom, top]) {
   return solid;
 }
 
-// Blank plates are reused for every update, so convert each one once.
+// Blank plates are reused for every update, so convert each one once. asOriginal gives the plate
+// its own ID, which marks which triangles of a finished plate came from it (see toTriangles).
 const plateManifolds = new WeakMap();
 function plateManifold(mf, triangles) {
-  if (!plateManifolds.has(triangles)) plateManifolds.set(triangles, toManifold(mf, triangles));
+  if (!plateManifolds.has(triangles)) plateManifolds.set(triangles, toManifold(mf, triangles).asOriginal());
   return plateManifolds.get(triangles);
 }
 
@@ -211,11 +214,28 @@ function toManifold(mf, triangles) {
   return new mf.Manifold(mesh);
 }
 
-function toTriangles(manifold) {
-  const { numProp, vertProperties, triVerts } = manifold.getMesh();
-  const out = new Float32Array(triVerts.length * 3);
-  triVerts.forEach((v, i) => out.set(vertProperties.subarray(v * numProp, v * numProp + 3), i * 3));
-  return out;
+// The manifold's triangles as { triangles, marked } (see buildPlate). Manifold records which input
+// each triangle came from; those that didn't come from the plate (whose ID is `plateID`) are the
+// logo's and text's, and are put first.
+function toTriangles(manifold, plateID = null) {
+  const { numProp, vertProperties, triVerts, runIndex, runOriginalID } = manifold.getMesh();
+  const fromPlate = new Uint8Array(triVerts.length / 3).fill(1);
+  if (plateID !== null) {
+    runOriginalID.forEach((id, run) => {
+      if (id !== plateID) fromPlate.fill(0, runIndex[run] / 3, runIndex[run + 1] / 3);
+    });
+  }
+  const triangles = new Float32Array(triVerts.length * 3);
+  const marked = fromPlate.length - fromPlate.reduce((sum, f) => sum + f, 0);
+  let next = [0, marked]; // where the next marked and the next plate triangle go
+  fromPlate.forEach((f, t) => {
+    for (let k = 0; k < 3; k++) {
+      const v = triVerts[t * 3 + k];
+      triangles.set(vertProperties.subarray(v * numProp, v * numProp + 3), (next[f] * 3 + k) * 3);
+    }
+    next[f]++;
+  });
+  return { triangles, marked };
 }
 
 // [min, max] of the vertices along an axis (0 = x, 1 = y, 2 = z).
